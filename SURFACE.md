@@ -7,7 +7,7 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
 
 ## MottoOTTCore
 
-881 public symbols.
+762 public symbols.
 
 - `@MainActor final class AccountController` — The `AuthService` calls that mint no end-user tokens: password recovery, email verification and the profile.
   - `@MainActor func changePassword(oldPassword: String, newPassword: String) async throws` — Changes the password of the signed-in user, who proves it with the old one.
@@ -50,14 +50,16 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
   - `init(token: String, refreshToken: String? = nil)`
   - `var refreshToken: String?`
   - `var token: String` — The access token, as returned by every `AuthService` sign-in style call.
-- `@MainActor final class AlwaysVisible` — Permanently visible and never notifying — the right answer for a client with no notion of "on screen", and the default until a host supplies one.
-  - `@MainActor init()`
-  - `@MainActor var isVisible: Bool { get }`
-  - `@MainActor func subscribe(_ listener: @escaping @MainActor () -> Void) -> Unsubscribe`
-- `@MainActor final class AnalyticsChannel` — The analytics event seam.
+- `@MainActor final class AnalyticsChannel` — The analytics event seam, and the viewer's consent.
   - `typealias Listener = @MainActor (AnalyticsEvent) throws -> Void`
+  - `@MainActor var consent: AnalyticsConsent { get set }` — What the viewer consented to.
   - `@MainActor func emit(_ event: AnalyticsEvent)` — Public on purpose: the SDK publishes its catalog through here, and an application with moments of its own to measure — its share buttons above all — pushes them through the same pipe rather than wiring a second one.
+  - `@MainActor func setConsent(_ consent: AnalyticsConsent)` — Records the viewer's answer, remembered across launches.
   - `@MainActor func subscribe(_ listener: @escaping AnalyticsChannel.Listener) -> Unsubscribe` — Every event, SDK-emitted and application-emitted alike.
+- `enum AnalyticsConsent` — How far the viewer let analytics go.
+  - `case anonymous` — Measured without being identified: no user id reaches a vendor.
+  - `case identified` — The signed-in user's id is sent with what is measured.
+  - `init?(rawValue: String)` — Creates a new instance with the specified raw value.
 - `enum AnalyticsEvent` — The analytics event catalog: the moments the SDK decides are worth measuring, published for the application to forward to whatever it measures with (Firebase, GA4, a vendor SDK).
   - `case beginCheckout(currency: String, value: Double, items: [AnalyticsItem], contentTitle: String, contentType: String, checkoutType: String)` — A checkout actually started: provider resolved, about to present its form.
   - `case custom(type: String, parameters: [String : JSONValue])` — An application's own event, pushed through the same pipe so one forwarder serves both catalogs.
@@ -86,7 +88,7 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
   - `@MainActor func stop()` — Stops the cadence.
 - `struct AnnotationsControllerOptions`
   - `init(videoId: String, interval: Duration = annotationsLiveRefreshInterval)`
-  - `var interval: Duration` — Live polling cadence; `annotationsLiveRefreshInterval` unless overridden.
+  - `var interval: Duration` — Live polling cadence; once a minute unless overridden.
   - `var videoId: String` — The video whose annotations to read; empty means nothing to ask, answered locally.
 - `struct AnnotationsSnapshot`
   - `var annotations: [Annotation]` — The delivered annotations, verbatim, in the CDA's own order.
@@ -188,9 +190,6 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
   - `var sourceData: (any Sendable)?` — The fetched (or materialized/seeded) response for single-fetch sources, in the CDA's own message type.
   - `var type: String`
   - `var visible: Bool`
-- `struct ComposedFilter`
-  - `var filter: String?` — Absent when the base filter did not resolve (do not fetch).
-  - `var ready: Bool`
 - `@MainActor final class ConcurrencyController` — The client half of concurrency enforcement for a video whose `Video.concurrency_session` is set.
   - `@MainActor var playbackAllowed: Bool { get }`
   - `@MainActor var snapshot: ConcurrencySnapshot { get set }`
@@ -213,6 +212,9 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
   - `init?(rawValue: String)` — Creates a new instance with the specified raw value.
   - `case reconnecting`
   - `case stopped`
+- `@MainActor protocol ConsentStore : AnyObject` — Where the viewer's analytics consent is remembered between launches.
+  - `@MainActor func read() -> AnalyticsConsent?`
+  - `@MainActor func write(_ consent: AnalyticsConsent)`
 - `typealias CreativeWork = Motto_Cda_Cms_CreativeWork_V1_CreativeWork`
 - `enum DayBoundary`
   - `case end`
@@ -341,38 +343,6 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
 - `@MainActor protocol LocaleStore : AnyObject` — Where the resolved locale is remembered between launches.
   - `@MainActor func read() -> String?`
   - `@MainActor func write(_ locale: String)`
-- `@MainActor final class MemoryKeyValueStore` — The default filter-store backing: in memory for the life of the process.
-  - `@MainActor func delete(_ key: String)`
-  - `@MainActor func get(_ key: String) -> JSONValue?`
-  - `@MainActor init()`
-  - `@MainActor func keys() -> [String]`
-  - `@MainActor func set(_ key: String, value: JSONValue)`
-  - `@MainActor var snapshot: [String : JSONValue] { get }` — Every stored key and value, for hosts (and tests) that inspect the store.
-  - `@MainActor func subscribe(_ listener: @escaping @MainActor ([String]) -> Void) -> Unsubscribe`
-- `@MainActor final class MemoryLocaleStore` — In-memory locale store: the seed for tests, and the fallback where no persistence was configured.
-  - `@MainActor init(initial: String? = nil)`
-  - `@MainActor func read() -> String?`
-  - `@MainActor func write(_ locale: String)`
-- `@MainActor final class MemoryOidcStateStore`
-  - `@MainActor func clear()`
-  - `@MainActor init()`
-  - `@MainActor func read() -> OidcPendingState?`
-  - `@MainActor func write(_ state: OidcPendingState)`
-- `@MainActor final class MemoryRecentPurchaseStore` — In memory, for the life of the process.
-  - `@MainActor func clear()`
-  - `@MainActor init(now: @escaping () -> Date = { Date() })`
-  - `@MainActor func read() -> Date?` — The purchase time while the hint is live, else `nil`.
-  - `@MainActor func record(at: Date)`
-- `@MainActor final class MemoryTokenStore` — Non-persistent store: the session lasts exactly as long as the process does.
-  - `@MainActor func clear() async`
-  - `@MainActor init()`
-  - `@MainActor func read() async -> StoredTokens`
-  - `@MainActor func write(_ tokens: StoredTokens) async`
-- `@MainActor final class MemoryUrlAdapter` — The default address adapter: an in-memory address that mirroring updates.
-  - `@MainActor init(route: String = "/", queryParams: [String : String] = [:])`
-  - `@MainActor func mirror(_ patch: [String : String?])` — `nil` (or empty) removes the parameter.
-  - `@MainActor func navigate(to route: String, queryParams: [String : String] = [:])` — The host navigating: a new route and its parameters replace the address.
-  - `@MainActor func read() -> PageAddress`
 - `@MainActor final class Monetization` — The monetization endpoints, named as the CDA names them: thin wrappers over `TransactionService`, `SubscriptionService` and `OfferService`, with request fields passed through and responses in the generated types.
   - `@MainActor func batchGetOffers(_ offerIds: [String], locale: String? = nil) async throws -> [Offer]` — The named offers, whole, in the resolved locale unless overridden.
   - `@MainActor func batchGetPaymentMethods(_ paymentMethodIds: [String]) async throws -> [PaymentMethod]` — The payment methods behind transactions.
@@ -405,6 +375,7 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
   - `@MainActor var client: String` — The `GetPage` `client` value (`ios`, `tvos`, or the app's own).
   - `@MainActor var clock: any Clock<Duration>` — The clock every cadence sleeps on — refresh policies, pairing polls, heartbeats.
   - `@MainActor var clockDrift: Duration` — Tolerance when judging the access token's `exp`.
+  - `@MainActor var consentStore: (any ConsentStore)?` — Where the viewer's analytics consent is remembered between launches.
   - `@MainActor var diagnostics: MottoOTTDiagnostics`
   - `@MainActor var environment: MottoOTTEnvironment` — Defaults to `.production`.
   - `@MainActor var hostIdentity: (any HostIdentity)?` — A host that signs viewers in itself and supplies their Motto token (`HostIdentity`).
@@ -413,7 +384,6 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
   - `@MainActor var localeStore: (any LocaleStore)?` — Where the resolved locale is remembered between launches.
   - `@MainActor var materialize: Int` — `GetPage` `materialize` count for initial page requests.
   - `@MainActor var now: () -> Date` — Wall-clock time, for judging token expiry and subscription ends.
-  - `@MainActor var oidcStateStore: (any OidcStateStore)?` — Where an OIDC flow's `nonce` and `state` wait out the trip to the provider.
   - `@MainActor var platform: Platform?` — A Platform the host already resolved (a state restoration).
   - `@MainActor var publicKey: String` — The platform's public key; sent as `Authorization: Bearer` on every call.
   - `@MainActor var recentPurchaseStore: (any RecentPurchaseStore)?` — Where a just-completed purchase is remembered (the recent-purchase hint).
@@ -424,7 +394,6 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
   - `@MainActor var urlAdapter: (any UrlAdapter)?`
   - `@MainActor var urlSessionConfiguration: URLSessionConfiguration` — The configuration of the URLSession the default transport uses — for a proxy, certificate pinning delegate-free settings, or timeouts.
   - `@MainActor var visibility: (any VisibilitySource)?` — Whether the app is in front of the viewer.
-  - `@MainActor var webSocketFactory: WebSocketFactory` — Opens concurrency-session sockets.
 - `enum MottoOTTClientError`
   - `case bootstrapBeforeSwitch`
   - `case platformMissing`
@@ -432,7 +401,7 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
 - `@MainActor final class MottoOTTContent` — Content reads outside a page.
   - `@MainActor func autocomplete(_ query: String) async throws -> [String]` — Suggestion strings for a partial search query, in the resolved locale.
   - `@MainActor func createAnnotations(_ options: AnnotationsControllerOptions) -> AnnotationsController` — A subscribable annotations read for an event timeline: `refresh()` once for settled content, `startPolling()` while the event is live.
-  - `@MainActor func listAnnotations(_ request: ListAnnotationsRequest = ListAnnotationsRequest()) async throws -> [Annotation]` — `AnnotationService.ListAnnotations`, filter passed through — for one video's annotations that is `videoAnnotationsFilter(videoId:)`; the resolved locale rides along unless overridden.
+  - `@MainActor func listAnnotations(_ request: ListAnnotationsRequest = ListAnnotationsRequest()) async throws -> [Annotation]` — `AnnotationService.ListAnnotations`, filter passed through — for one video's annotations that is `video_id:<id>`; the resolved locale rides along unless overridden.
 - `struct MottoOTTDiagnostics` — What the SDK reports about the pages it opens — for a monitoring pipe, a console in development, never for the viewer.
   - `init(onUnknownComponent: ((String, String) -> Void)? = nil, onDeprecatedComponent: ((String, String) -> Void)? = nil, onClientsMismatch: ((String, [String]) -> Void)? = nil, onPageError: ((any Error) -> Void)? = nil, onSourceError: ((String, any Error) -> Void)? = nil)`
   - `var onClientsMismatch: ((String, [String]) -> Void)?` — A component's non-empty `clients` list excludes the client value we sent — a server bug to surface.
@@ -460,7 +429,7 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
 - `@MainActor final class MottoOTTPlayback` — Playback: resolving what to play, and whether the viewer may.
   - `@MainActor func awaitEntitlement(_ options: AwaitEntitlementOptions) async -> Bool` — Waits for a completed purchase to take effect: polls `listEntitlements` for the **offer** that was bought until it appears or the recent-purchase window closes, treating an empty answer as "not yet".
   - `@MainActor func createConcurrencySession(_ session: ConcurrencySession) -> ConcurrencyController` — The client half of concurrency enforcement for a video whose `Video.concurrency_session` is set — pass that field.
-  - `@MainActor func listEntitlements(_ request: ListEntitlementsRequest = ListEntitlementsRequest()) async throws -> [Entitlement]` — The viewer's active entitlements, `filter` passed through — narrowed to one offer with `offerEntitlementFilter(offerId:)`.
+  - `@MainActor func listEntitlements(_ request: ListEntitlementsRequest = ListEntitlementsRequest()) async throws -> [Entitlement]` — The viewer's active entitlements, `filter` passed through — narrowed to one offer with `offer_id:<id>`.
   - `@MainActor let recentPurchase: any RecentPurchaseStore` — The just-bought hint.
   - `@MainActor func resolveVideos(_ request: ResolveVideosRequest) async throws -> [Video]` — Resolves a content item's videos, deduplicated like every other CDA read.
 - `typealias Offer = Motto_Cda_Monetization_Offer_V1_Offer`
@@ -481,16 +450,7 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
   - `@MainActor func accountManagementUrl(locale: String = "") async throws -> String` — The provider's own account-management page, for a client that offers one.
   - `@MainActor func complete(code: String? = nil, idToken: String? = nil, state: String? = nil) async throws` — Finishes the flow with what the provider sent back, adopting the resulting Motto session.
   - `@MainActor func endSession(redirectUrl: String? = nil, locale: String? = nil) async -> String?` — Signs out of both sessions: resolves with the provider's end-session URL and ends the Motto session.
-  - `@MainActor var pending: OidcPendingState? { get }` — What this client is waiting to have handed back, if anything.
   - `@MainActor func start(redirectUrl: String, locale: String? = nil) async throws -> String` — Begins the flow: resolves with the URL to send the viewer to, having first retained what the exchange will need.
-- `struct OidcPendingState` — The values an OIDC round trip has to survive on.
-  - `var nonce: String`
-  - `var redirectUrl: String`
-  - `var state: String`
-- `@MainActor protocol OidcStateStore : AnyObject` — Where those values wait.
-  - `@MainActor func clear()`
-  - `@MainActor func read() -> OidcPendingState?`
-  - `@MainActor func write(_ state: OidcPendingState)`
 - `struct OpenPageOptions`
   - `var deferSources: DeferSources` — Components whose initial fetch waits until `PageSession.activate(_:)`.
   - `init(seedPage: Page? = nil, seededAt: Date? = nil, deferSources: DeferSources = .default)`
@@ -572,6 +532,7 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
   - `var googleClientId: String?` — Google Identity Services client id (`integrations.google_si.client_id`).
   - `var gtmContainerId: String?` — Google Tag Manager container id (`integrations.gtm.id`).
   - `var hasCleeng: Bool` — Whether the platform monetizes through Cleeng.
+  - `var muxEnvKey: String?` — Mux Data environment key (`integrations.mux.env_key`), which the player's `MuxPlugin` reports under.
 - `struct PriceGroup` — Recurring prices sharing one billing period, in display position.
   - `var periodKey: BillingPeriodKey` — Identifies the group — the shared billing period.
   - `var periodLabelKey: BillingPeriodKey` — The key a group heading translates.
@@ -726,9 +687,6 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
   - `var refreshToken: String?`
 - `typealias Subscription = Motto_Cda_Monetization_Subscription_V1_Subscription`
 - `typealias SubscriptionStatus = Motto_Cda_Monetization_Subscription_V1_SubscriptionStatus`
-- `struct SubstitutionResult`
-  - `var ready: Bool` — False when at least one placeholder failed to resolve.
-  - `var resolved: String`
 - `enum TextElement` — The heading levels the schema sanctions; anything else is ignored.
   - `case h1`
   - `case h2`
@@ -760,18 +718,15 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
   - `case idle`
   - `init?(rawValue: String)` — Creates a new instance with the specified raw value.
   - `case pending`
-- `@MainActor final class URLSessionWebSocket` — Adapts `URLSessionWebSocketTask` to the narrow shape core drives it through.
-  - `@MainActor func close(code: Int)`
-  - `@MainActor init(url: URL, session: URLSession = .shared)`
-  - `@MainActor var onClose: (@MainActor (Int) -> Void)?`
-  - `@MainActor var onMessage: (@MainActor (String) -> Void)?`
-  - `@MainActor var onOpen: (@MainActor () -> Void)?`
-  - `@MainActor func send(_ text: String)`
 - `typealias Unsubscribe = @MainActor () -> Void` — A subscription's lifetime: call to stop listening.
 - `@MainActor protocol UrlAdapter : AnyObject` — How core reads the current address and mirrors filter state to it.
   - `@MainActor func mirror(_ patch: [String : String?])` — `nil` (or empty) removes the parameter.
   - `@MainActor func read() -> PageAddress`
 - `typealias User = Motto_Cda_Iam_Auth_V1_User`
+- `@MainActor final class UserDefaultsConsentStore` — `UserDefaults`, beside the locale: a viewer's consent outlives the process.
+  - `@MainActor init(defaults: UserDefaults = .standard)`
+  - `@MainActor func read() -> AnalyticsConsent?`
+  - `@MainActor func write(_ consent: AnalyticsConsent)`
 - `@MainActor final class UserDefaultsLocaleStore` — `UserDefaults`, the natural home for a small preference that must outlive the process.
   - `@MainActor init(defaults: UserDefaults = .standard)`
   - `@MainActor func read() -> String?`
@@ -781,119 +736,45 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
 - `@MainActor protocol VisibilitySource : AnyObject` — Whether the page is in front of the user.
   - `@MainActor var isVisible: Bool { get }`
   - `@MainActor func subscribe(_ listener: @escaping @MainActor () -> Void) -> Unsubscribe`
-- `@MainActor protocol WebSocketConnection : AnyObject` — The subset of a WebSocket connection core drives for concurrency sessions.
-  - `@MainActor func close(code: Int)`
-  - `@MainActor var onClose: (@MainActor (Int) -> Void)? { get set }`
-  - `@MainActor var onMessage: (@MainActor (String) -> Void)? { get set }`
-  - `@MainActor var onOpen: (@MainActor () -> Void)? { get set }`
-  - `@MainActor func send(_ text: String)`
-- `typealias WebSocketFactory = @MainActor (String) -> any WebSocketConnection`
-- `func accountDeletionGuard(_ subscriptions: [Subscription], now: Date) -> AccountDeletionGuard`
-- `let annotationsLiveRefreshInterval: Duration` — How often a polling `AnnotationsController` re-reads a live video's annotations.
-- `let backgroundRebuildThreshold: Duration` — How long an installed app may sit in the background before it stops trusting what it holds and starts again from `GetPlatform`.
-- `func bannerAssetMediaKind(_ asset: BannerAsset) -> BannerAssetMediaKind` — Whether an asset is a video or an image.
 - `func bannerGradientConfig(_ banner: Banner) -> BannerGradientConfig` — The authored-gradients tri-state, read off whichever template the banner's oneof populated.
 - `func bannerTemplateCase(_ banner: Banner) -> String?` — The template case's name, as the web SDK reports it (`defaultBanner`, `teamVsTeamHero`, …).
 - `func billingPeriodKey(_ price: OfferPrice) -> BillingPeriodKey`
-- `let billingPeriodOrder: [BillingPeriod]` — The order prices are shown in: Monthly → Yearly → Quarterly → Weekly → One-time.
 - `func cancellableSubscriptions(_ subscriptions: [Subscription], now: Date) -> [Subscription]` — The subscriptions a viewer may cancel: still running, and not already on a scheduled cancellation.
 - `func cdaErrorMessage(_ error: any Error) -> String?` — The CDA's own message for a failed call, where it sent one.
 - `func colorPairFill(color1: String?, color2: String?) -> ColorPairFill?`
-- `let completedTransactionsFilter: String` — The transactions filter an account page's history uses by default: attempts that moved money.
-- `func composeFilter(base: String, additionalFilters: [(key: String, clause: String)], read: (String) -> JSONValue?, isActive: (String) -> Bool) -> ComposedFilter` — Substitute the base filter (unresolvable ⇒ not ready), then append each active declared clause — parenthesized, AND-joined, in authored order — dropping unresolvable clauses silently.
-- `let concurrencyConnectionTimeout: Duration` — A socket that never reaches `open` is a failed attempt like any other.
-- `let concurrencyHeartbeatInterval: Duration`
-- `let concurrencyMaxReconnectAttempts: Int`
-- `let concurrencyReconnectBaseDelay: Duration`
-- `func decodeJwtClaims(_ token: String?) -> JwtClaims?` — The token's claims, or `nil` when it is not a readable JWT.
-- `let defaultCdaUrl: String` — The CDA endpoint.
 - `func defaultDeferPolicy(_ component: PageComponent) -> Bool` — The default lazy-loading policy: which non-materialized sources wait for presentation proximity before fetching.
-- `func deserializePage(_ json: Data) throws -> Page`
-- `func deserializePlatform(_ json: Data) throws -> Platform`
-- `func displayedBanners(_ collection: BannerCollection?, clientValue: String) -> [Banner]` — The banners to present, in delivered order, in the CDA's own type.
-- `let entitlementFirstCheckDelay: Duration` — The first check waits longer than the rest.
-- `let entitlementPollInterval: Duration` — How often to ask whether a just-bought entitlement has landed.
-- `let entitlementPollTimeout: Duration` — Give up after this long and let the caller show "we're still processing".
-- `func faqItemKinds(_ copy: Motto_Cda_Ott_Page_V3_FaqCopy) -> [FaqItemKind]` — Each delivered item's kind, index-aligned with `copy.items`: an item whose content oneof carries a redirect URL is a navigation, everything else expands in place.
-- `func firstSegment(_ path: String) -> String?` — The first path segment, or `nil` for a root path.
-- `func footerAttribution(_ copy: Motto_Cda_Ott_Page_V3_FooterCopy) -> FooterAttribution` — Whether the attribution line renders, and what it says once it does.
-- `func footerContent(_ copy: Motto_Cda_Ott_Page_V3_FooterCopy, resolvedLocale: String, platform: Platform?) -> FooterLocaleContent?` — The footer content the locale chain selects, or `nil` when the map has none.
-- `func footerLogoUrl(_ copy: Motto_Cda_Ott_Page_V3_FooterCopy, platform: Platform?) -> String` — The footer's own logo, falling back to the platform's.
-- `func footerNavigation(_ content: FooterLocaleContent?, resolvedLocale: String, addressing: RouteAddressing?) -> [FooterNavigationTarget]` — The navigation entries with their targets resolved: external targets stand untouched, internal ones addressed as the client addresses its routes.
-- `func footerSocialLinks(_ content: FooterLocaleContent?) -> [FooterSocialNetwork]` — The social entries whose platform identifier the schema recognizes.
-- `func formatCurrencyAmount(_ amount: Double, currencyCode: String, locale: Locale = .current) -> String` — Locale-aware currency formatting with the legacy fallback: an unknown or empty currency code renders as `12.00 XYZ` rather than throwing mid-render.
-- `func formatKqlScalar(_ scalar: String) -> String` — KQL scalar quoting.
 - `func formatMoney(_ money: Money?, locale: Locale = .current) -> String`
-- `let handoffCodeParam: String` — The query parameters the web side reads a handoff from.
 - `func imageResizeUrl(_ url: String, width: Int) -> String` — The CDN `w=` resize idiom for any delivered image URL — card thumbnails, banner assets, entity logos, posters.
 - `func integrations(_ platform: Platform?) -> PlatformIntegrations`
 - `func isExternalTarget(_ target: String) -> Bool` — A target that leaves this client: `https:`, `mailto:`, `tel:`.
 - `func isRtlLocale(_ locale: String?) -> Bool` — Whether a resolved platform locale reads right-to-left.
-- `func isTokenExpired(_ token: String?, now: Date, drift: Duration) -> Bool` — A token counts as expired once `exp` is in the past *or close to it*, so a clock a few seconds fast does not send a doomed request.
 - `func isUnauthenticated(_ error: any Error) -> Bool` — Whether a failed call is the CDA refusing the caller's credentials.
 - `func localDateIso(_ date: Date = Date(), timeZone: TimeZone = .autoupdatingCurrent) -> String` — The **local** calendar date as `YYYY-MM-DD` — what the calendar's default active date is derived from.
 - `func localDayBoundaryIso(_ dateOnly: String, _ boundary: DayBoundary, timeZone: TimeZone = .autoupdatingCurrent) -> String` — Date-only value → stored instant at the local day boundary.
 - `func localDayOfInstant(_ instant: String, timeZone: TimeZone = .autoupdatingCurrent) -> String?` — The local calendar day a stored filter instant falls in — the reverse view of the day-boundary expansion, using the same local-date notion as `localDateIso` so the day a viewer picked round-trips exactly.
 - `func localeOfPath(_ path: String, supportedLocales: [String]) -> String?` — The locale a visited path names, if it names one the Platform supports.
-- `func localeShapedSegment(_ path: String) -> String?` — A leading segment that *could* be a locale, for the pre-bootstrap request.
 - `func localizedPath(_ path: String, _ addressing: RouteAddressing) -> String` — The path this client should be on, given how it addresses routes.
 - `func localizedRoute(_ addressing: RouteAddressing, _ route: String) -> String` — A client-neutral route as this client addresses it: under the resolved locale where addresses carry one — `"/competitions"` → `/en/competitions`, `"/"` → `/en` — and as it is otherwise (see `RouteAddressing`).
-- `func matchLocaleBundle<T>(_ locale: String?, in bundles: KeyValuePairs<String, T>) -> T?` — Picks the entry of a locale-keyed table that best serves a BCP-47 tag — the resolution every packaged label dictionary applies, shared so the resolvers cannot drift.
-- `let monetizationListPageSize: Int` — The default page for the two list reads; any non-zero `pageSize` overrides it.
-- `func moneyAmount(_ money: Money?) -> Double` — The numeric amount: whole `units` plus fractional `nanos`.
-- `func moneyTotal(_ money: Money?, quantity: Int) -> Double` — A total over an integer quantity (a commitment's `price × periods`), computed in integer units+nanos before conversion so repeated floating-point addition cannot drift the cents.
-- `func offerDisplayConfig(_ behavior: Motto_Cda_Ott_Page_V3_OffersBehavior, offerId: String) -> OfferDisplay` — The display configuration authored for one offer.
-- `func offerEntitlementFilter(offerId: String) -> String` — The filter form for an offer's entitlement.
 - `func ongoingSubscriptions(_ subscriptions: [Subscription], now: Date) -> [Subscription]` — The subscriptions still running at `now`: ongoing status, and not yet past their end.
-- `func pathRedirectTarget(path: String, search: String, _ addressing: RouteAddressing) -> String?` — The redirect a visited path owes, if any: where addresses carry a locale, a path without a supported-locale segment belongs at the same path under the resolved locale; where they do not, a path carrying the locale segment belongs at its bare form.
-- `let platformColorNames: [String]` — The colour names the Studio publishes on `platform.colors`.
 - `func platformFeatures(_ platform: Platform?) -> PlatformFeatures` — Reads the feature configuration off a resolved Platform.
 - `func platformFooterLinks(of platform: Platform?, addressing: RouteAddressing?) -> [FooterNavigationTarget]` — The platform's own footer entries (`Platform.footerEntries`), resolved as the footer component's links are.
-- `func promotionalMedia(_ copy: Motto_Cda_Ott_Page_V3_PromotionalContentCopy) -> PromotionalMediaPresentation?` — Which media variant is presented and what navigates.
-- `let recentPurchaseTTL: Duration` — The hint window.
-- `let redirectToAppParam: String`
-- `let refreshPolicies: [RefreshKind : RefreshPolicy]` — The per-component-type refresh cadences, in one place.
 - `func replaceLocaleSegment(_ path: String, currentLocale: String, newLocale: String) -> String` — The one sanctioned URL dissection — swapping the leading locale segment of a locale-carrying path to switch the session locale.
 - `func resetCodeFromParams(_ params: [String : String]) -> String?` — The password-reset code on a landing URL's query, if present.
-- `func resolveBannerCollection(_ collection: BannerCollection?, layout: Motto_Cda_Ott_Page_V3_BannerCollectionV2Layout, clientValue: String) -> ResolvedBannerCollection` — The `banner_collection_v2` page component's resolution.
 - `func resolveColor(_ value: String?) -> ResolvedColor?` — `nil` for an absent or empty value, so a caller falls through to its own default.
 - `func resolveFaq(_ copy: Motto_Cda_Ott_Page_V3_FaqCopy) -> ResolvedFaq` — The `faq` page component's resolution: each item's kind.
-- `func resolveFilterLayout(_ data: Motto_Cda_Ott_Page_V3_FilterData) -> ResolvedFilterLayout` — The layout is `rail` only when it can be one — exactly one control, a select, single-valued — and reads as `inline` otherwise: an authoring slip must not silently unfilter a page, which is what drawing nothing (the legacy web client's answer) does.
 - `func resolveFooter(_ copy: Motto_Cda_Ott_Page_V3_FooterCopy, resolvedLocale: String, platform: Platform?, addressing: RouteAddressing?) -> ResolvedFooter` — The `footer` page component's resolution.
-- `func resolveFooterLocale(resolvedLocale: String, availableLocales: [String], platformLocales: [String]) -> String` — Which key of the footer's `copy.items` map its content is read from.
-- `func resolveOfferVariants(_ offer: Offer) -> [OfferVariant]` — An offer's prices arranged the way cards present them — **one entry per commitment variant**, each with its own period groups.
 - `func resolveOffers(_ behavior: Motto_Cda_Ott_Page_V3_OffersBehavior, offers: [Offer]) -> ResolvedOffers` — The `offers` page component's resolution: the per-offer display rules.
 - `func resolvePromotionalContent(_ copy: Motto_Cda_Ott_Page_V3_PromotionalContentCopy) -> ResolvedPromotionalContent` — The `promotional_content` page component's resolution: the variant and the navigation rules.
-- `func resolveRail(_ layout: Motto_Cda_Ott_Page_V3_RailLayout) -> ResolvedRail` — The `rail` page component's resolution (its `content_carousel` and `content_rail` aliases too).
 - `func resolveSponsorshipCollection(_ copy: Motto_Cda_Ott_Page_V3_SponsorshipCollectionCopy, layout: Motto_Cda_Ott_Page_V3_SponsorshipCollectionLayout) -> ResolvedSponsorshipCollection` — The `sponsorship_collection` page component's resolution.
 - `func resolveStandings(_ copy: Motto_Cda_Ott_Page_V3_StandingsCopy, behavior: Motto_Cda_Ott_Page_V3_StandingsBehavior, standing: Standing?) -> ResolvedStandings` — The `standings` page component's resolution.
 - `func resolveText(_ layout: Motto_Cda_Ott_Page_V3_TextLayout) -> ResolvedText` — The `text` page component's resolution.
-- `let revisitRefreshCooldown: Duration` — How old a component's data must be before a return to its page re-reads it, whatever its refresh policy says.
-- `func routeOfPath(_ path: String, _ addressing: RouteAddressing) -> String` — The client-neutral route beneath a locale-carrying path: `/en/faq` → `/faq`, `/en` → `/`.
-- `func sameOriginPath(_ target: String, baseUrl: String) -> String?` — The path (with its query) of an absolute address on the platform's own origin, `nil` for any other address.
-- `func sanitizeSameAppPath(_ candidate: String?) -> String?` — A post-authentication return target, sanitized to a same-application path.
-- `func selectBannerAsset(_ assets: [BannerAsset], width: Int) -> BannerAsset?` — Which of a banner's `background_assets` a given presentation width gets — the widest asset whose `breakpoint_width` does not exceed the width, falling back to the *smallest* asset when none qualifies.
-- `func serializePage(_ page: Page) throws -> Data` — Proto3 canonical JSON transfer of the two bootstrap payloads, so a host can hand what it holds — a state restoration, a widget's snapshot — to a client session without depending on the generated types' binary form.
-- `func serializePlatform(_ platform: Platform) throws -> Data`
-- `func sortedPrices(_ prices: [OfferPrice]) -> [OfferPrice]` — Prices in display order.
-- `func sponsorshipAspectRatio(_ layout: Motto_Cda_Ott_Page_V3_SponsorshipCollectionLayout) -> Double?` — The active arrangement's authored `aspect_ratio` ("16:9") as the plain width/height quotient a layout accepts.
-- `func sponsorshipMarqueeHeight(_ layout: Motto_Cda_Ott_Page_V3_SponsorshipCollectionLayout) -> Double?` — The marquee arrangement's authored `height` ("200px") as the plain pixel number it names.
-- `func standingsRows(_ standing: Standing?, behavior: Motto_Cda_Ott_Page_V3_StandingsBehavior) -> [StandingsPhaseRows]` — The table to display, mirroring the delivered structure — phase → group → row — with the highlight flag set, highlighted-only filtering applied, the true rank kept and the per-classification cells looked up.
-- `func substituteStandingTitle(_ title: String, standing: Standing?) -> String` — `{standing.entityName}` substituted — the one copy variable the SDK resolves.
-- `func substituteTemplate(_ template: String, read: (String) -> JSONValue?) -> SubstitutionResult`
 - `let tvPairingCodeLength: Int` — A pairing code is six characters from an uppercase alphanumeric alphabet — `cda-user-identity` generates it so (`create_tv_code.go`) and uppercases whatever the entering side sends (`connect_tv_code.go`) — so the entering side may draw six slots and fold case rather than guess.
-- `let tvPairingFirstCheckDelay: Duration` — The user needs time to type the code before the first check.
-- `let tvPairingInterval: Duration` — A moderate cadence afterwards — polling aggressively is forbidden.
-- `let urlSessionWebSocketFactory: WebSocketFactory` — The production factory over `URLSession`.
 - `func validatePassword(_ password: String) -> [PasswordProblem]`
 - `func verificationTokenFromParams(_ params: [String : String]) -> String?` — The email-verification token on a landing URL's query, if present.
-- `func videoAnnotationsFilter(videoId: String) -> String` — The `ListAnnotations` filter for one video's annotations — the proto's one documented filter form.
-- `func videoOffersFilter(videoId: String) -> String` — The `ListOffers` filter for the offers that grant access to one video — the paywall's question.
-- `func webHandoffUrl(_ url: String, code: String, redirectToApp: Bool = true) -> String` — A web address with the handoff code and the return-to-app hint appended, so the web client adopts this session and knows to send the viewer back.
 
 ## MottoOTTPlayer
 
-290 public symbols.
+284 public symbols.
 
 - `@MainActor protocol AdsBridge : AnyObject` — An advertising integration.
   - `@MainActor func startAds(adTagUrl: String, player: AVPlayer, engine: PlayerEngine, host: AdsHost?) async -> (any AdsSession)?` — Requests the ads for a playback and resolves once they are loaded — or failed, which plays the content without them.
@@ -951,30 +832,14 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
   - `init?(rawValue: String)` — Creates a new instance with the specified raw value.
   - `case playready`
   - `case widevine`
-- `@MainActor final class MemoryProgressStore`
-  - `@MainActor func clear(_ key: String)`
-  - `@MainActor init()`
-  - `@MainActor func read(_ key: String) -> Double?`
-  - `@MainActor func write(_ key: String, offsetSeconds: Double)`
-- `@MainActor protocol PlaybackEngine : AnyObject` — What the headless session drives: `PlayerEngine` in the application, a stand-in in tests, so the resolution and re-poll rules are testable on the host without a media pipeline.
-  - `@MainActor var buffered: [TimeRange] { get }` — What has been downloaded.
-  - `@MainActor func destroy()`
-  - `@MainActor func load(_ source: PlaybackSource, startTime: Double?) async throws`
-  - `@MainActor func pause()`
-  - `@MainActor func play()`
-  - `@MainActor func seek(to seconds: Double)`
-  - `@MainActor var seekable: [TimeRange] { get }` — Where seeking is allowed; on a live stream the DVR window, which moves.
-  - `@MainActor func setMuted(_ muted: Bool)`
-  - `@MainActor var snapshot: EngineSnapshot { get }`
-  - `@MainActor func subscribe(_ listener: @escaping @MainActor () -> Void) -> Unsubscribe`
-- `struct PlaybackMetadata` — What a plugin is told about the content it is measuring.
-  - `init(videoId: String, videoTitle: String? = nil, isLive: Bool, platformId: String? = nil, viewerId: String? = nil, viewerPseudoId: String? = nil)`
-  - `var isLive: Bool`
+- `struct PlaybackMetadata` — What a plugin is told about the content it is measuring and who watches it.
+  - `init(videoId: String, videoTitle: String? = nil, isLive: Bool? = nil, platformId: String? = nil, viewerId: String? = nil, viewerPseudoId: String? = nil)`
+  - `var isLive: Bool?` — Whether the stream is live.
   - `var platformId: String?` — The Motto platform this playback belongs to.
   - `var videoId: String`
-  - `var videoTitle: String?`
-  - `var viewerId: String?` — The signed-in user, when analytics consent allows identifying them.
-  - `var viewerPseudoId: String?` — A stable anonymous id, safe to send without consent — keeps unique-viewer counts honest.
+  - `var videoTitle: String?` — The video's `name`, which the CDA keeps for analytics: `title` is localized, and the same video would read as a different one per locale.
+  - `var viewerId: String?` — The signed-in user, only while the viewer consented to being identified (`client.analytics.consent`).
+  - `var viewerPseudoId: String?` — A stable anonymous id that keeps unique-viewer counts honest when the viewer may not be identified.
 - `struct PlaybackSource`
   - `var drm: DrmSource?`
   - `var playlist: Playlist`
@@ -987,7 +852,6 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
     - `var liveEdgeThreshold: Double` — Within this many seconds of the window's end the viewer is "live".
     - `var minimumLiveWindow: Double` — A live window shorter than this is not worth a seek bar: streams report a window of nothing in their first seconds.
     - `var stepInterval: Double` — What the step buttons skip.
-  - `@MainActor func attach(_ engine: any PlaybackEngine)` — A pipeline was built.
   - `@MainActor func beginScrubbing()` — The thumb was taken hold of: the bar follows the finger, not the playhead.
   - `@MainActor var bufferedProgress: Double { get set }` — How far along the span playback is downloaded, 0...1.
   - `@MainActor func detach()` — The pipeline went.
@@ -1009,6 +873,7 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
   - `@MainActor var isPlaying: Bool { get set }`
   - `@MainActor var isScrubbing: Bool { get set }` — The thumb is held; the playhead follows only when it is released.
   - `@MainActor var isSeekable: Bool { get set }` — A seek bar makes sense: VOD with a known duration, or a live window longer than the minimum.
+  - `@MainActor var isStarting: Bool { get set }` — The video is being brought up and has not played yet: the load, the seek to a resume point, and — when the session starts playback on its own (autoplay, or the viewer's request under `.onDemand`) — the wait until the first frame plays.
   - `@MainActor var isZoomed: Bool { get set }` — The picture fills its frame, cropping, rather than fitting inside it.
   - `@MainActor var progress: Double { get set }` — Where the playhead sits along the seekable span, 0...1.
   - `@MainActor func scrub(to fraction: Double)` — The thumb moved, to a fraction of the span.
@@ -1092,11 +957,15 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
 - `enum PlayerLoadPolicy` — When a session builds its playback pipeline.
   - `case immediate` — Resolve, choose a source and load it in one go — an inline player.
   - `case onDemand` — Resolve and choose a source, so playability and every refusal are known, but build nothing until `beginPlayback()`.
-- `@MainActor protocol PlayerPlugin : AnyObject` — An analytics (or other) integration attached to a playback session.
-  - `@MainActor func attach(_ context: PluginContext) async throws`
+- `@MainActor protocol PlayerPlugin : AnyObject` — A playback analytics (or other) integration attached to a playback session.
+  - `@MainActor func attach(_ context: PluginContext) async throws` — The engine exists; nothing is loaded yet.
   - `@MainActor func detach()`
   - `@MainActor func detach()`
+  - `@MainActor func loadFailed(_ error: PlayerError)` — The load failed.
+  - `@MainActor func loadFailed(_ error: PlayerError)` — The load failed.
   - `@MainActor var name: String { get }`
+  - `@MainActor func update(_ metadata: PlaybackMetadata)` — What is known about the content or the viewer changed mid-session: the manifest is parsed and liveness is known, or who may be identified changed.
+  - `@MainActor func update(_ metadata: PlaybackMetadata)` — What is known about the content or the viewer changed mid-session: the manifest is parsed and liveness is known, or who may be identified changed.
 - `@MainActor final class PlayerSession` — The headless player: everything the player does, with no UI at all.
   - `struct Options`
     - `var adsBridge: (any AdsBridge)?` — The advertising integration.
@@ -1115,15 +984,14 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
     - `var onPluginError: ((String, any Error) -> Void)?`
     - `var persistProgress: Bool` — VOD resume.
     - `var platformId: String?` — Filled into `PlaybackMetadata` beside what the video provides.
-    - `var plugins: [any PlayerPlugin]`
+    - `var plugins: [any PlayerPlugin]?` — The playback analytics.
     - `var progressStore: (any ProgressStore)?`
     - `var recentPurchaseTime: Date?` — A purchase inside the recent-purchase window, so entitlement propagation is short-circuited.
     - `var repollInterval: Duration?` — Re-resolve the videos on this cadence while none is playable, so an event going live or an entitlement finishing its propagation is picked up without the viewer reloading.
     - `var urlSession: URLSession`
     - `var userId: String?` — Namespaces the resume point per account.
     - `var videoIds: [String]` — The videos to attempt, in the order the content item lists them.
-    - `var viewerId: String?`
-    - `var viewerPseudoId: String?`
+    - `var viewerPseudoId: String?` — The application's anonymous id for the viewer; see `PlaybackMetadata.viewerPseudoId`.
   - `@MainActor var adBreakActive: Bool { get set }` — An ad break holds the stage.
   - `@MainActor var adsHost: AdsHost? { get set }` — Where the ads bridge renders.
   - `@MainActor var attempt: Int { get set }` — Bumped by `retry()` and by the background poll finding a playable source — the two deliberate reloads of a player that is not playing.
@@ -1131,25 +999,32 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
   - `@MainActor var concurrency: ConcurrencyController? { get set }` — The concurrency session for this video, when the CDA required one.
   - `@MainActor let controls: PlayerControls` — The transport's model, attached to each engine as it is built: what a control surface drawn over this player shows and does.
   - `@MainActor static func defaultAdsBridge() -> (any AdsBridge)?` — The advertising integration the SDK ships: Google IMA on iOS and tvOS, nothing on the host.
+  - `@MainActor static func defaultPlugins() -> [any PlayerPlugin]` — The playback analytics the SDK ships: Mux Data on iOS and tvOS, nothing on the host.
   - `@MainActor func endPlayback()` — Under `.onDemand`: the viewer left the video.
   - `@MainActor var engine: PlayerEngine? { get }` — The engine, once a source was chosen and the pipeline built.
   - `@MainActor var error: PlayerError? { get }` — Set whenever playback cannot proceed, in the normalized vocabulary: a refusal from resolution, or the engine's own failure.
+  - `@MainActor func holdStart()` — Holds back what the session would start on its own — the pre-roll, and the autoplay — while the screen showing the player is out of sight.
   - `@MainActor init(options: PlayerSession.Options)`
   - `@MainActor var isPlayable: Bool { get }` — A source is chosen and nothing refuses it: the video can play, or is playing.
   - `@MainActor var options: PlayerSession.Options { get set }`
   - `@MainActor var playbackRequested: Bool { get set }` — Under `.onDemand`, whether the viewer has asked for the video: true from `beginPlayback()` to `endPlayback()`.
+  - `@MainActor func releaseStart()` — Lets the start `holdStart()` held back go ahead.
   - `@MainActor func retry()` — Resolves the videos and reloads.
   - `@MainActor var source: PlaybackSource? { get set }` — The chosen video, once one has been resolved.
   - `@MainActor func start()` — Resolves and loads.
   - `@MainActor var state: EngineSnapshot { get }` — The engine's state; `.idle` before there is one.
   - `@MainActor func stop()` — Tears the pipeline down.
+  - `@MainActor var surfaceSize: CGSize?` — The size the picture is drawn at, in points, which analytics report as the player's.
   - `@MainActor func update(videoIds: [String])` — The ids this player is committed to are not the same as the ids it was last handed.
+  - `@MainActor func updateViewerPseudoId(_ pseudoId: String?)` — The application's anonymous id for the viewer changed.
 - `typealias Playlist = Motto_Cda_Streaming_Video_V1_Playlist`
 - `typealias PlaylistFormat = Motto_Cda_Streaming_Video_V1_PlaylistFormat`
-- `@MainActor struct PluginContext` — What a plugin is handed when it attaches: the engine, the `AVPlayer` the vendor SDKs monitor, and the playback's metadata.
-  - `@MainActor let engine: PlayerEngine`
+- `@MainActor struct PluginContext` — What a plugin is handed when it attaches: the engine, the `AVPlayer` the vendor SDKs monitor, the client whose platform holds an integration's credentials, and the playback's metadata.
+  - `@MainActor let client: MottoOTTClient`
+  - `@MainActor let engine: PlayerEngine?` — `nil` for an engine that is not AVPlayer-backed.
   - `@MainActor let metadata: PlaybackMetadata`
-  - `@MainActor let player: AVPlayer`
+  - `@MainActor let player: AVPlayer?` — `nil` for an engine that is not AVPlayer-backed.
+  - `@MainActor let surfaceSize: CGSize?` — The size the picture is drawn at, in points, when a surface has laid it out (`PlayerSession.surfaceSize`).
 - `@MainActor protocol ProgressStore : AnyObject`
   - `@MainActor func clear(_ key: String)`
   - `@MainActor func read(_ key: String) -> Double?`
@@ -1188,7 +1063,7 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
 
 ## MottoOTTPageComponents
 
-354 public symbols.
+351 public symbols.
 
 - `struct BannerCollectionApi` — The `banner_collection_v2` page component's interface.
   - `var banners: [Banner]` — The banners to rotate through — core's client filtering applied.
@@ -1444,12 +1319,12 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
   - `@MainActor func present()` — Opens the player full screen.
   - `@MainActor let presentation: PlayerPresentation`
   - `@MainActor var refusal: PlayerError? { get }` — Why the video is not playing, in the normalized vocabulary; `nil` while it is.
-  - `@MainActor func resume()` — The page is back in front: playback resumes where `suspend()` paused it.
+  - `@MainActor func resume()` — The page is back in front: playback resumes where `suspend()` paused it, or starts as it would have.
   - `@MainActor func retry()` — Resolve and load again — the only thing allowed to restart playback.
   - `@MainActor var section: SectionContext<Item> { get }`
   - `@MainActor func start()` — Resolves and loads, and starts watching the refusal for the sign-in wall.
   - `@MainActor func stop()`
-  - `@MainActor func suspend()` — The page went out of sight — covered by another screen, or the app left the foreground — while the video plays inline: playback pauses and remembers to resume.
+  - `@MainActor func suspend()` — The page went out of sight — covered by another screen, or the app left the foreground — while the video plays inline: playback pauses and remembers to resume, and a video still starting waits to start until the page is back.
   - `@MainActor let timeline: Google_Protobuf_Struct?`
   - `@MainActor var videoIds: [String] { get }`
 - `struct PlayerPageConfiguration` — What an application hands a player page component beside the page: the analytics slots, the vendor bridges, and overrides on the placeholder copy.
@@ -1459,9 +1334,10 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
   - `var labels: PageComponentLabelOverrides?`
   - `var onPluginError: ((String, any Error) -> Void)?`
   - `var playerLabels: PlayerLabelOverrides?`
-  - `var plugins: [any PlayerPlugin]`
+  - `var plugins: (@MainActor () -> [any PlayerPlugin])?` — Makes the playback analytics for each player; `nil`, the default, is the SDK's own (`PlayerSession.defaultPlugins()`, Mux Data).
   - `var presentation: PlayerPresentation?` — `nil`, the default, is `PlayerPresentation.platformDefault`.
   - `var progressStore: (any ProgressStore)?`
+  - `var viewerPseudoId: String?` — The application's anonymous id for the viewer; see `PlaybackMetadata.viewerPseudoId`.
 - `enum PlayerPresentation` — How a player page component puts its video on screen.
   - `case fullScreen` — A stage stands in for the video — the application's `stage` slot: a poster, the title, a Watch button — and the player is presented full screen when the viewer starts it, torn down when they leave.
   - `case inline` — The player plays where the component sits, the moment the page arrives (subject to the component's autoplay).
@@ -1520,9 +1396,7 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
 - `func bannerVideoAsset(_ banner: Banner, preferLargest: Bool) -> BannerAsset?` — A motion background, when the banner carries one: the largest on a television, the smallest on a phone.
 - `func calendarCardStyling(_ layout: Motto_Cda_Ott_Page_V3_CalendarV2Layout) -> CardStyling`
 - `func componentData<T>(_ component: ComponentSnapshot, _ narrow: (PageComponent.OneOf_Data) -> T?) -> T?` — The delivered data for a page component, narrowed to the type its wrapper expects, or `nil` when the component carries something else.
-- `func computePageLayout(_ components: [ComponentSnapshot], status: PageStatus? = nil) -> PageLayout` — Adjacent components sharing a `group_id` render in one shared container.
 - `@MainActor func contentGridApi(session: PageSession, component: ComponentSnapshot) -> ContentGridApi`
-- `func contentGridCardStyling(_ layout: Motto_Cda_Ott_Page_V3_ContentGridLayout) -> CardStyling`
 - `@MainActor func creativeWorkPlayerApi(session: PageSession, component: ComponentSnapshot) -> CreativeWorkPlayerApi`
 - `@MainActor func creativeWorkPlayerComponent(client: MottoOTTClient, session: PageSession, component: ComponentSnapshot, configuration: PlayerPageConfiguration = PlayerPageConfiguration()) -> PlayerPageComponent<CreativeWork>` — The `creative_work_player` page component, beneath its view.
 - `func entityReference(in fields: Google_Protobuf_Struct, at keypath: String) -> EntityReference?` — The linked item at the *base* of a keypath: for `fields.season.item.name` the reference is `fields.season`, read from its `type_id` and `id`.
@@ -1537,17 +1411,15 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
 - `@MainActor func pageComponentApi(session: PageSession, component: ComponentSnapshot) -> PageComponentApi` — Builds the common half of a page component's interface.
 - `@MainActor func railApi(session: PageSession, component: ComponentSnapshot, pageRoute: String) -> RailApi` — `pageRoute` is the route of the page the rail sits on, which the see-all page needs to find the rail again.
 - `func railCardPresentation(_ cardConfig: Google_Protobuf_Struct?) -> RailCardPresentation` — Reads the presentation flags off the request's `card_config`.
-- `func railCardStyling(_ layout: Motto_Cda_Ott_Page_V3_RailLayout) -> CardStyling` — The styling a rail's layout carries.
 - `func railCardTemplate(_ cardType: RailCard.OneOf_CardType?) -> String` — The template a card was delivered with, by name — what tells two cards apart without saying how either is drawn.
 - `func resolveComponentLabels(_ locale: String?) -> ComponentLabels` — The packaged component labels for a locale; see `resolvePageComponentLabels`.
 - `func resolveFilterLabels(_ locale: String?) -> FilterLabels` — The packaged filter labels for a locale; see `resolvePageComponentLabels`.
 - `func resolvePageComponentLabels(_ locale: String?) -> PageComponentLabels` — The packaged bundle for a locale: exact tag, then bare language, then the language's first regional bundle, then the English defaults.
 - `func sourceResponse<T>(_ component: ComponentSnapshot, as type: T.Type = T.self) -> T?` — The component's fetched (or materialized) response, in its CDA type.
-- `let videoRepollInterval: Duration` — How often `event_player` and `creative_work_player` re-resolve their videos.
 
 ## MottoOTTNavigation
 
-59 public symbols.
+81 public symbols.
 
 - `enum NavigationDestination` — Where a stack element leads: a page by the target that named it, or one of the application's screens by its route.
   - `case page(target: String)`
@@ -1561,11 +1433,33 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
   - `enum Kind`
     - `case page(target: String)` — A page the CDA renders at the tab's root — an operator's navigation entry.
     - `case screen(route: String)` — A screen of the application's own at the root, named by its route (`/search`).
+  - `enum Purpose` — What a tab is for, so an application can give it an icon.
+    - `case account`
+    - `case athletes`
+    - `case audio`
+    - `case competitions`
+    - `case favorites`
+    - `case help`
+    - `case home`
+    - `case live`
+    - `static func named(target: String) -> NavigationTab.Purpose?` — The purpose the words of an address name, if any, read from its last word back: the deepest segment is the most specific (`/competitions/cup/teams` lists teams), and a slug ends in its noun (`match-highlights` are highlights).
+    - `case news`
+    - `case other(ordinal: Int)` — Nothing in the tab's address says what it is.
+    - `case schedule`
+    - `case search`
+    - `case series`
+    - `case shop`
+    - `case standings`
+    - `case subscription`
+    - `case teams`
+    - `case tickets`
+    - `case videos`
   - `var id: String` — The stable identity of the entity associated with this instance.
-  - `init(id: String, title: String, kind: NavigationTab.Kind, routes: [String] = [])`
+  - `init(id: String, title: String, kind: NavigationTab.Kind, routes: [String] = [], purpose: NavigationTab.Purpose? = nil)`
   - `var kind: NavigationTab.Kind`
   - `static func overflow(of platform: Platform?, trailing: [NavigationTab], limit: Int = tabLimit, homeTitle: String = "Home") -> [NavigationTab]` — The platform's entries `tabs(of:trailing:limit:)` left out of the bar, in the platform's order: an operator authored every one of them, so the ones the bar has no room for are offered somewhere else — the account section, in the legacy client — rather than lost.
   - `static func pageTabs(of platform: Platform?, homeTitle: String = "Home") -> [NavigationTab]` — The home page first — the platform's navigation entries rarely include it, as the web's logo is its link, and one that does is not repeated — then one page tab per entry, in the platform's order.
+  - `var purpose: NavigationTab.Purpose` — What the tab is for, for its icon.
   - `var routes: [String]` — The routes this tab answers at its root, beside a page tab's own.
   - `static var tabLimit: Int { get }` — The most tabs a device's bar holds before it degrades: past six the tvOS bar scrolls, past five a phone's is too dense to read.
   - `static func tabs(of platform: Platform?, trailing: [NavigationTab], limit: Int = tabLimit, homeTitle: String = "Home") -> [NavigationTab]` — The tab bar for this device.
@@ -1611,7 +1505,7 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
 
 ## MottoOTTAuth
 
-161 public symbols.
+148 public symbols.
 
 - `struct AppleCredential` — What Apple returns beside the token, for an account being created.
   - `var familyName: String?`
@@ -1724,10 +1618,6 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
 - `@MainActor struct ResetPasswordForm` — Sets a new password from a reset link.
   - `@MainActor var body: some View { get }` — The content and behavior of the view.
   - `@MainActor init(client: MottoOTTClient, configuration: AuthUiConfiguration, code: String, title: String? = nil, confirmPassword: Bool = true, onCompleted: (() -> Void)? = nil)`
-- `@MainActor protocol ReturnTargetStorage : AnyObject` — The subset of a key-value store these helpers use, so tests need no defaults database.
-  - `@MainActor func read(_ key: String) -> String?`
-  - `@MainActor func remove(_ key: String)`
-  - `@MainActor func write(_ key: String, _ value: String)`
 - `@MainActor struct SignInForm` — Motto-native sign-in.
   - `@MainActor var body: some View { get }` — The content and behavior of the view.
   - `@MainActor init(client: MottoOTTClient, configuration: AuthUiConfiguration, title: String? = nil, onSignedIn: (() -> Void)? = nil)`
@@ -1747,11 +1637,6 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
 - `@MainActor struct TvPairingView` — The TV side of pairing: shows the code the viewer types on another device, the address to visit, and a QR of that address, and polls until the entering side connects it to an account.
   - `@MainActor var body: some View { get }` — The content and behavior of the view.
   - `@MainActor init(client: MottoOTTClient, configuration: AuthUiConfiguration, linkUrl: String? = nil, onConnected: (() -> Void)? = nil)`
-- `@MainActor final class UserDefaultsReturnStorage`
-  - `@MainActor init(defaults: UserDefaults = .standard)`
-  - `@MainActor func read(_ key: String) -> String?`
-  - `@MainActor func remove(_ key: String)`
-  - `@MainActor func write(_ key: String, _ value: String)`
 - `enum VerificationState`
   - `case failed`
   - `case verified`
@@ -1760,24 +1645,20 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
   - `@MainActor var body: some View { get }` — The content and behavior of the view.
   - `@MainActor init(client: MottoOTTClient, configuration: AuthUiConfiguration, token: String, onVerified: (() -> Void)? = nil, onFailed: (() -> Void)? = nil)`
   - `@MainActor init(client: MottoOTTClient, configuration: AuthUiConfiguration, token: String, onVerified: (() -> Void)? = nil, onFailed: (() -> Void)? = nil, @ViewBuilder content: @escaping (VerificationState) -> Content)`
-- `let authReturnStorageKey: String` — Where the target survives an OIDC provider round-trip.
 - `func confirmationError(password: String, confirmation: String, labels: AuthLabels) -> String?`
-- `@MainActor func consumeReturnTarget(_ storage: (any ReturnTargetStorage)?) -> String?` — Reads, validates and removes the stashed target — consume-once, so a later unrelated sign-in cannot resurrect it.
 - `let defaultReturnParam: String` — The query parameter carrying the return target between auth screens.
 - `func emailError(_ value: String, labels: AuthLabels) -> String?`
 - `@MainActor func obtainAppleCredential() async throws -> AppleCredential` — Sign in with Apple through `AuthenticationServices`: runs the system authorization and resolves with the identity token and the name Apple hands over on first authorization.
 - `func passwordError(_ value: String, labels: AuthLabels) -> String?` — The CDA's password rules, said in the user's language.
 - `func qrCode(for text: String) -> CGImage?` — A QR code of `text`, for a screen the viewer reads from across the room.
 - `func resolveAuthLabels(_ locale: String?) -> AuthLabels` — The packaged bundle for a locale: exact tag, then bare language, then the language's first regional bundle, then the English defaults.
-- `func returnSuffix(_ target: String?, param: String = defaultReturnParam) -> String` — The `?redirect=` suffix restated, so sign-in ↔ sign-up cross-links keep carrying the target.
 - `func returnTarget(from query: [String : String], param: String = defaultReturnParam) -> String?` — The sanitized same-app return target named by a URL's query.
 - `func returnTarget(from url: URL, param: String = defaultReturnParam) -> String?` — The sanitized same-app return target named by a URL, from its query.
 - `@MainActor func signOut(client: MottoOTTClient) async` — Signs out on a Motto-native platform, or on any platform where the provider session is not the app's to end (tvOS).
-- `@MainActor func stashReturnTarget(_ storage: (any ReturnTargetStorage)?, _ target: String?)` — Stashes the target across a provider round-trip — or, given none, **clears** the key: a stale target left by an earlier flow would otherwise hijack the next sign-in, which is why "no target" is a write, not a no-op.
 
 ## MottoOTTCheckout
 
-301 public symbols.
+284 public symbols.
 
 - `struct AnalyticsContent` — The content being unlocked, for analytics.
   - `init(title: String, type: String)`
@@ -1790,7 +1671,7 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
 - `@MainActor final class Checkout` — The provider-agnostic front door.
   - `@MainActor struct Options`
     - `@MainActor var client: MottoOTTClient`
-    - `@MainActor var declaredReturnParams: [ProviderName : [String]]` — The return-leg parameters per provider, known without building it — `returnParams` by default; an app whose web checkout returns through its own names declares them here.
+    - `@MainActor var declaredReturnParams: [ProviderName : [String]]` — The return-leg parameters per provider, known without building it — the shipped providers' own by default; an app whose web checkout returns through its own names declares them here.
     - `@MainActor var handoffStore: any PurchaseHandoffStore`
     - `@MainActor init(client: MottoOTTClient, providers: [ProviderName : ProviderLoader])`
     - `@MainActor var providers: [ProviderName : ProviderLoader]` — Loaders by provider name; omit one to declare the platform does not sell through it.
@@ -1868,11 +1749,6 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
   - `var total: String`
   - `var weeks: String`
   - `var years: String`
-- `@MainActor final class MemoryPurchaseHandoffStore`
-  - `@MainActor init()`
-  - `@MainActor var isEmpty: Bool { get }`
-  - `@MainActor func readAndClear() -> PurchaseHandoff?`
-  - `@MainActor func save(_ handoff: PurchaseHandoff)`
 - `struct OfferCard` — One card of the list: an offer's commitment variant with its prices wired and its entries resolved.
   - `var busy: Bool` — True while any purchase from this list is in flight.
   - `var entries: OfferCardEntries` — The card pre-flattened: every price of `pricing` positioned with its display strings resolved.
@@ -1881,7 +1757,7 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
   - `var offer: Offer`
   - `var presentation: OfferPresentation`
   - `var prices: [OfferPriceOption]` — Every price this card sells, so a card mapping `prices` reaches all of them.
-  - `var pricing: OfferVariant` — This card's commitment variant, resolved by `resolveOfferVariants`, never re-derived per card.
+  - `var pricing: OfferVariant` — This card's commitment variant, resolved once per offer, never re-derived per card.
   - `var selectPrice: @MainActor (String) -> Void` — Moves the head to another toggle option, by **price id** — never by billing period.
   - `var selectedPriceId: String?` — The price the head currently presents — `entries.primary`'s id.
 - `struct OfferCardEntries` — One card's entries, by position.
@@ -2064,20 +1940,8 @@ The generated schema (`MottoCDA`, re-exported by `MottoOTTCore`) is the CDA's ow
   - `@MainActor let name: ProviderName`
   - `@MainActor func purchase(_ intent: PurchaseIntent) async -> PurchaseResult` — Runs the purchase to whatever conclusion the provider reaches in this app.
   - `@MainActor var returnParams: [String] { get }` — The query parameters this provider's return leg puts in the URL, so a caller can recognise a landing without asking the provider.
-- `func commitmentMonths(_ price: OfferPrice) -> Int?` — A commitment's term in months, where the billing period divides into them — the quarterly→months conversion as data.
-- `func commitmentTotal(_ price: OfferPrice) -> (periods: Int, amount: Double)?` — What a committed price adds up to — data, never display strings.
-- `let defaultProvider: ProviderName` — The provider an offer naming no external system falls to.
 - `func formatPrice(_ price: OfferPrice, locale: String) -> String?` — A price as a viewer reads it.
-- `@MainActor func integrationConfig(_ client: MottoOTTClient, provider: ProviderName) -> Google_Protobuf_Struct?` — Provider configuration lives at `platform.integrations.<provider>`, confirmed with Mats 2026-08-05 on the web SDK.
-- `func isKnownProvider(_ provider: ProviderName) -> Bool` — Whether this SDK ships an implementation for a provider at all.
-- `@MainActor func isTester(_ client: MottoOTTClient) -> Bool` — Test credentials are selected by the *viewer*, not by the build: a `tester` role on the access token puts that person through the provider's test mode on the production platform, which is how Motto staff exercise a live checkout without taking real money.
-- `let knownProviders: [ProviderName]` — The providers this SDK ships an implementation for: both through `WebHandoffProvider`, which sends the viewer to the platform's web checkout where Stripe's form and Cleeng's store run.
 - `func paywallPresentation(_ offers: [Offer]) -> [OfferPresentation]` — The presentation a paywall uses: prices and descriptions always shown.
-- `func providerForOffer(_ offer: Offer) -> ProviderName` — Which provider owns an offer.
 - `func providerKey(_ config: Google_Protobuf_Struct?, _ key: String, tester: Bool) -> String?` — Reads `key` from a provider's config, preferring the `test_`-prefixed variant for testers.
-- `func recognizesReturnLeg(_ providerNames: [ProviderName], _ params: [String : String], declared: [ProviderName : [String]] = returnParams) -> Bool` — Whether this landing carries the return parameters of any registered provider — a pure function of the query, free of I/O and provider building.
 - `func resolveCheckoutLabels(_ locale: String?) -> CheckoutLabels` — The packaged bundle for a locale: exact tag, then bare language, then the language's first regional bundle, then the English defaults.
-- `func resolveOfferEntries(variant: OfferVariant, options: [OfferPriceOption], selectedPriceId: String?, labels: CheckoutLabels, locale: String) -> OfferCardEntries` — Flattens one card's arrangement into positioned, worded entries.
-- `let returnParams: [ProviderName : [String]]` — Which query parameters each provider's return leg puts in the URL, known **without building the provider**: the same values a built provider reports as `returnParams`, declared here as well because of *when* the question gets asked — a landing arrives in `onOpenURL` while the refused video's paywall is already on screen, and recognising it must not wait for a provider to be built.
-- `func ungroupedVariants(_ offer: Offer) -> [OfferVariant]` — Every price of an offer on one card, ungrouped — what switching the arrangement off produces.
 

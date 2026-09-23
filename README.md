@@ -9,7 +9,7 @@ download URLs and checksums, and `SURFACE.md` is the public API map.
 | Product | Purpose |
 |---|---|
 | `MottoOTTCore` | The engine: platform bootstrap, page sessions, the filter model, source controllers with their refresh policies, auth and the token lifecycle, playback resolution, concurrency, monetization reads, annotations, analytics, one resolver per page component. |
-| `MottoOTTPlayer` | AVPlayer, FairPlay, the normalized refusal taxonomy, the headless `PlayerSession`, `PlayerView`, Google IMA ads, the Cast slot. |
+| `MottoOTTPlayer` | AVPlayer, FairPlay, the normalized refusal taxonomy, the headless `PlayerSession`, `PlayerView`, Google IMA ads, Mux Data analytics, the Cast slot. |
 | `MottoOTTPageComponents` | The page arrangement, `PageComponentStack` (the tvOS focus rules), the per-component interfaces, and the two player page components. |
 | `MottoOTTNavigation` | Navigation: `TabNavigator` for an application that owns its tabs, `StackNavigator` for a section inside a host's own shell, one `open` for every target, the tvOS Menu and tab-bar semantics. |
 | `MottoOTTAuth` | SwiftUI auth forms and copy, Sign in with Apple, OIDC on iOS, TV pairing. |
@@ -48,8 +48,10 @@ The generated Content Delivery API types (`MottoCDA`) are re-exported by `MottoO
 else needs adding to your manifest. The SwiftProtobuf build the SDK was compiled with ships
 in the package, and its Connect transport is linked inside `MottoOTTCore`, so an application must
 not add its own source dependency on `swift-protobuf` or `connect-swift` alongside this
-package. Every product but `MottoOTTCore` links Google IMA, which the manifest fetches from
-Google's Swift packages; `MottoOTTCore` alone links nothing else.
+package. Every product but `MottoOTTCore` links Google IMA and Mux Data, which the manifest
+fetches from the vendors' Swift packages; `MottoOTTCore` alone links nothing else. Mux
+reports under the platform's `integrations.mux.env_key` while its analytics feature is on,
+and measures nothing on a platform without one.
 
 ## Versions
 

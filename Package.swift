@@ -1,6 +1,6 @@
 // swift-tools-version: 6.0
 //
-// The Motto OTT SDK for Apple platforms, 1.0.2: a compiled Swift package.
+// The Motto OTT SDK for Apple platforms, 1.1.0: a compiled Swift package.
 //
 // Every module an import needs is a binary target — the SDK's own, the
 // generated CDA schema modules, and the SwiftProtobuf build they were compiled
@@ -23,56 +23,60 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/googleads/swift-package-manager-google-interactive-media-ads-ios.git", from: "3.33.0"),
         .package(url: "https://github.com/googleads/swift-package-manager-google-interactive-media-ads-tvos.git", from: "4.17.0"),
+        .package(url: "https://github.com/muxinc/mux-stats-sdk-avplayer.git", from: "4.17.0"),
+        .package(url: "https://github.com/muxinc/stats-sdk-objc.git", from: "5.14.0"),
     ],
     targets: [
-        // Google IMA, which MottoOTTPlayer's binary was compiled against: a binary
-        // target cannot declare dependencies, so this target carries them.
+        // Google IMA and Mux Data, which MottoOTTPlayer's binary was compiled against:
+        // a binary target cannot declare dependencies, so this target carries them.
         .target(
             name: "MottoOTTPlayerDependencies",
             dependencies: [
                 .product(name: "GoogleInteractiveMediaAds", package: "swift-package-manager-google-interactive-media-ads-ios", condition: .when(platforms: [.iOS])),
                 .product(name: "GoogleInteractiveMediaAdsTvOS", package: "swift-package-manager-google-interactive-media-ads-tvos", condition: .when(platforms: [.tvOS])),
+                .product(name: "MUXSDKStats", package: "mux-stats-sdk-avplayer"),
+                .product(name: "MuxCore", package: "stats-sdk-objc"),
             ]
         ),
         .binaryTarget(
             name: "MottoOTTCore",
-            url: "https://storage.googleapis.com/motto-ott-sdk-releases/apple/1.0.2/MottoOTTCore.xcframework.zip",
-            checksum: "d23d11446edf503ffabed439e9742054b6ba0d661ba56813cc6c802ad18e6402"
+            url: "https://storage.googleapis.com/motto-ott-sdk-releases/apple/1.1.0/MottoOTTCore.xcframework.zip",
+            checksum: "00b5e3198b16f4d17784736d10d29b95f3d35285791e2e83b8d665546d879a6c"
         ),
         .binaryTarget(
             name: "MottoOTTPlayer",
-            url: "https://storage.googleapis.com/motto-ott-sdk-releases/apple/1.0.2/MottoOTTPlayer.xcframework.zip",
-            checksum: "b8412543d4c92d928fef20c9f6db9074c3bf6ae3ec82a58247aec00c273cbcbd"
+            url: "https://storage.googleapis.com/motto-ott-sdk-releases/apple/1.1.0/MottoOTTPlayer.xcframework.zip",
+            checksum: "81d8fae57203b970a10af90ae9f05c52d0bad4cca8535d455a18f2d16bc0c2b0"
         ),
         .binaryTarget(
             name: "MottoOTTPageComponents",
-            url: "https://storage.googleapis.com/motto-ott-sdk-releases/apple/1.0.2/MottoOTTPageComponents.xcframework.zip",
-            checksum: "133406fde07d0619de7fa13ac67e1515576f99b324b0f685179a0e60181ccb46"
+            url: "https://storage.googleapis.com/motto-ott-sdk-releases/apple/1.1.0/MottoOTTPageComponents.xcframework.zip",
+            checksum: "b9c481acc4b46c79f57dc33c5a52ac012e16d2bf844126cf4b31942d2fec4bb8"
         ),
         .binaryTarget(
             name: "MottoOTTNavigation",
-            url: "https://storage.googleapis.com/motto-ott-sdk-releases/apple/1.0.2/MottoOTTNavigation.xcframework.zip",
-            checksum: "35680994f3ba1b5a27d92e28072c846b34274620a3cbd26ea41987284f8a9f10"
+            url: "https://storage.googleapis.com/motto-ott-sdk-releases/apple/1.1.0/MottoOTTNavigation.xcframework.zip",
+            checksum: "91c2d98617bc57958e020c0db2e740436bd3dd4f3fdd7e99be3f1932b08c329c"
         ),
         .binaryTarget(
             name: "MottoOTTAuth",
-            url: "https://storage.googleapis.com/motto-ott-sdk-releases/apple/1.0.2/MottoOTTAuth.xcframework.zip",
-            checksum: "eded55cf4868c638c5e9013560f6003e98727c61e01423c598f3431fba519bcd"
+            url: "https://storage.googleapis.com/motto-ott-sdk-releases/apple/1.1.0/MottoOTTAuth.xcframework.zip",
+            checksum: "acf786da641737f5874474bb0fc7a18da7ff2be8847f3cdbcce1bbf8e34d2923"
         ),
         .binaryTarget(
             name: "MottoOTTCheckout",
-            url: "https://storage.googleapis.com/motto-ott-sdk-releases/apple/1.0.2/MottoOTTCheckout.xcframework.zip",
-            checksum: "92f2eb3575504a6a6f1ee24f9373095032dc3158ea2007d03e754bad451e1bfa"
+            url: "https://storage.googleapis.com/motto-ott-sdk-releases/apple/1.1.0/MottoOTTCheckout.xcframework.zip",
+            checksum: "b609d49b20d2ac4b2ceee14a8f55e7f4f27a44791aed34ea12a7e35eb68e216b"
         ),
         .binaryTarget(
             name: "MottoCDA",
-            url: "https://storage.googleapis.com/motto-ott-sdk-releases/apple/1.0.2/MottoCDA.xcframework.zip",
-            checksum: "923210b1bad8a9dc21581929a8c0d28643ca7d2ece9b2290162ddd9b9c7f537b"
+            url: "https://storage.googleapis.com/motto-ott-sdk-releases/apple/1.1.0/MottoCDA.xcframework.zip",
+            checksum: "81ad4a52fe257f2eee74b178cac2ecccced7eeb213dc45404fb0b68bbca5d8df"
         ),
         .binaryTarget(
             name: "SwiftProtobuf",
-            url: "https://storage.googleapis.com/motto-ott-sdk-releases/apple/1.0.2/SwiftProtobuf.xcframework.zip",
-            checksum: "b719f3272a091cf937032cfca05cb81bf71c701eae375e91707acd0fd6fcfb11"
+            url: "https://storage.googleapis.com/motto-ott-sdk-releases/apple/1.1.0/SwiftProtobuf.xcframework.zip",
+            checksum: "b208033574b698bfb28a0ad13ca4ccbe71def95f924f01e759b67a7f8b27dc0a"
         ),
     ]
 )
